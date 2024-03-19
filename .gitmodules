@@ -1,0 +1,3 @@
+[submodule "Client/Debug/HoloLens2Stream"]
+	path = Client/Debug/HoloLens2Stream
+	url = git@github.com:IkbeomJeon/HoloLens2Stream.git
