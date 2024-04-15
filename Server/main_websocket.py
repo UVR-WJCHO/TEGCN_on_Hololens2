@@ -14,7 +14,7 @@ from SocketServer.type_definitions import DataFormat, SensorType, HoloLens2PVIma
 import json
 import threading
 import torch
-from TEGCN.module_SARTE import HandTracker
+from handtracker.module_SARTE import HandTracker
 
 
 stopwatch = StopWatch()

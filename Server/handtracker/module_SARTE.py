@@ -94,42 +94,41 @@ class HandTracker():
         self.img_h = 360
         self.crop_size = 360
         self.default_bbox = [240, 0, self.crop_size, self.crop_size]
+        self.demo_bbox = [0, 0, 224, 224]
 
         self.prev_coord = None
 
-        self.winname = "test"
+        self.winname = "demo"
         cv2.namedWindow(self.winname)
         cv2.moveWindow(self.winname, 1920, 30)
 
 
-    def Process_single_nomp(self, img): # input : img_cv
+    def Process_single_nomp(self, img, flag_vis=False, flag_demo=False): # input : img_cv
         t0 = time.time()
         if img.shape[-1] == 4:
             img = img[:, :, :-1]
         imgSize = (img.shape[0], img.shape[1])  # (360, 640)
 
-        # image from hololens2 is fliped both direction
-        # img = cv2.flip(img, 0)
         img_cv = np.copy(img)
 
         ## new hand detection. need to add re-initialization
-        if self.prev_coord is not None:
-            bbox = self.calc_bounding_rect_coords(self.img_w, self.img_h, self.prev_coord)
+        if flag_demo:
+            bbox = self.demo_bbox
         else:
-            bbox = self.default_bbox
-
+            if self.prev_coord is not None:
+                bbox = self.calc_bounding_rect_coords(self.img_w, self.img_h, self.prev_coord)
+            else:
+                bbox = self.default_bbox
 
         img_crop, img2bb_trans, bb2img_trans, _, _, = augmentation_real(img, bbox, flip=False)
         # cv2.imshow('img_crop', img_crop/255.0)
         # cv2.waitKey(1)
-
 
         # transform img
         img_pil = cv2pil(img_crop)
         img = self.transform(img_pil)
         img = torch.unsqueeze(img, 0).type(torch.float32)
         inputs = {'img': img}
-
 
         if cfg.extra:
             self.extra_uvd = np.copy(self.extra_uvd_right)
@@ -150,8 +149,11 @@ class HandTracker():
             outs = self.tester.model(inputs).detach()
         t2 = time.time()
 
-        outs = outs.to("cpu", non_blocking=True)
-        coords_uvd = outs.numpy()[0]
+        if flag_demo:
+            outs = outs.cpu().numpy()
+        else:
+            outs = outs.to("cpu", non_blocking=True).numpy()
+        coords_uvd = outs[0]
 
         # normalized value to uv(pixel) range
         coords_uvd[:, :2] = (coords_uvd[:, :2] + 1) * (cfg.input_img_shape[0] // 2)
@@ -174,9 +176,10 @@ class HandTracker():
         # print("preprocess, inference, postprocess : ", t1-t0, t2-t1, t3-t2)
 
         ### visualize output in server ###
-        # img_cv = draw_2d_skeleton(img_cv, coords_uvd)
-        # cv2.imshow(self.winname, img_cv)
-        # cv2.waitKey(1)
+        if flag_vis:
+            img_cv = draw_2d_skeleton(img_cv, coords_uvd)
+            cv2.imshow(self.winname, img_cv)
+            cv2.waitKey(1)
 
         return coords_uvd
 
